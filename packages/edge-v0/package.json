@@ -1,0 +1,42 @@
+{
+  "name": "@turbo-ing/edge-v0",
+  "version": "0.0.1",
+  "description": "A React hook for P2P state synchronization using Turbo Edge",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-gossipsub": "^13.0.0",
+    "@chainsafe/libp2p-noise": "^15.0.0",
+    "@chainsafe/libp2p-yamux": "^6.0.1",
+    "@libp2p/circuit-relay-v2": "^1.0.4",
+    "@libp2p/dcutr": "^1.0.3",
+    "@libp2p/identify": "^2.1.0",
+    "@libp2p/interface": "^1.7.0",
+    "@libp2p/mplex": "^10.1.0",
+    "@libp2p/webrtc": "^4.0.5",
+    "@libp2p/websockets": "^8.0.4",
+    "@multiformats/multiaddr": "^12.1.11",
+    "libp2p": "^1.0.8",
+    "uint8arrays": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "react": "^18.0.0",
+    "tsup": "^8.2.4",
+    "typescript": "^5.6.2"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "keywords": [],
+  "author": "Turbo.ing",
+  "license": "MIT"
+}
