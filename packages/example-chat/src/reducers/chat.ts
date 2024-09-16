@@ -41,6 +41,8 @@ export function chatReducer(
     case 'MESSAGE': {
       const { message } = action.payload;
 
+      setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 200)
+
       return {
         ...state,
         messages: [
