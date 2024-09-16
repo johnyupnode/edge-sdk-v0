@@ -86,7 +86,9 @@ export function TurboEdgeProviderV0({
       },
       services: {
         identify: identify(),
-        pubsub: gossipsub(),
+        pubsub: gossipsub({
+          allowPublishToZeroTopicPeers: true,
+        }),
         dcutr: dcutr(),
       },
       connectionManager: {
@@ -147,7 +149,7 @@ export function TurboEdgeProviderV0({
       throw new Error("No working relay available");
     }
 
-    console.log("Libp2p initialized successfully");
+    console.debug("Libp2p initialized successfully");
 
     return {
       node,

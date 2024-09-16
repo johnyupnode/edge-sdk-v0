@@ -4,11 +4,12 @@ import { fromString, toString } from "uint8arrays";
 import { Message, SignedMessage } from "@libp2p/interface";
 import { multiaddr } from "@multiformats/multiaddr";
 
-export interface EdgeAction {
-  peerId: string;
+export interface EdgeAction<S> {
+  peerId?: string;
+  __turbo__payload?: S;
 }
 
-export function useEdgeReducerV0<S, A extends EdgeAction>(
+export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   reducer: (state: S, action: A) => S,
   initialValue: S,
   {
@@ -16,13 +17,14 @@ export function useEdgeReducerV0<S, A extends EdgeAction>(
   }: {
     topic: string;
   }
-) {
+): [S, (action: A) => Promise<void>, boolean] {
   const turboEdge = useTurboEdgeV0();
   const [state, rawDispatch] = useReducer(reducer, initialValue);
+  const [initialized, setInitialized] = useState(false)
 
   const dispatch = useCallback(
     async (action: A) => {
-      if (turboEdge) {
+      if (turboEdge && topic && initialized) {
         await turboEdge.node.services.pubsub.publish(
           topic,
           fromString(JSON.stringify(action))
@@ -36,13 +38,17 @@ export function useEdgeReducerV0<S, A extends EdgeAction>(
         throw new Error("Turbo Edge is not connected");
       }
     },
-    [rawDispatch, turboEdge, topic]
+    [rawDispatch, turboEdge, topic, initialized]
   );
 
   const init = useCallback(async () => {
+    setInitialized(false)
     if (turboEdge && topic) {
       await turboEdge.node.services.pubsub.subscribe(topic);
       await assignTopic(turboEdge, topic)
+      setInitialized(true)
+
+      console.debug('Connected to topic:', topic)
     }
   }, [turboEdge, topic]);
 
@@ -67,8 +73,10 @@ export function useEdgeReducerV0<S, A extends EdgeAction>(
         const eventTopic = event.detail.topic;
 
         if (eventTopic == topic) {
-          const message = toString(event.detail.topic);
+          const message = toString(event.detail.data);
           const action: A = JSON.parse(message);
+
+          console.debug('Received message on topic:', eventTopic, action)
 
           rawDispatch({
             ...action,
@@ -86,7 +94,7 @@ export function useEdgeReducerV0<S, A extends EdgeAction>(
     }
   }, [turboEdge, topic]);
 
-  return [state, dispatch];
+  return [state, dispatch, initialized];
 }
 
 async function assignTopic(turboEdge: TurboEdgeContextBody, topic: string) {
@@ -111,8 +119,9 @@ async function assignTopic(turboEdge: TurboEdgeContextBody, topic: string) {
     
     if (res.peers) {
       for (const peer of res.peers) {
+        console.debug(`${turboEdge.addrPrefix}/${peer}`)
         if (peer != selfPeerId) {
-          const ma = multiaddr(`${turboEdge.addrPrefix}/${peer}`)
+          const ma = multiaddr(`${turboEdge.addrPrefix}/p2p-circuit/webrtc/p2p/${peer}`)
           turboEdge.node.dial(ma).catch(err => console.error(`Can't connect to ${peer}`, err))
         }
       }
