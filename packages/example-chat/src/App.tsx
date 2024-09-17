@@ -2,6 +2,7 @@ import { useEdgeReducerV0, useTurboEdgeV0 } from "@turbo-ing/edge-v0";
 import { useEffect, useState } from "react";
 import { chatReducer, initialState } from "./reducers/chat";
 import TurboLogo from "./assets/turbo-logo.svg";
+import PingPeers from "./PingPeers";
 
 function App() {
   const [name, setName] = useState("");
@@ -18,22 +19,6 @@ function App() {
   );
 
   const turboEdge = useTurboEdgeV0();
-
-  const [peerCount, setPeerCount] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (turboEdge && roomIdCommitted) {
-        const peerList =
-          turboEdge.node.services.pubsub.getSubscribers(roomIdCommitted);
-        setPeerCount(peerList.length);
-      } else {
-        setPeerCount(0);
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [turboEdge, roomIdCommitted]);
 
   useEffect(() => {
     if (connected) {
@@ -100,59 +85,67 @@ function App() {
             </i>
           </div>
 
-          {roomIdCommitted && connected && (
-            <div className="bg-white rounded w-full mt-4">
-              <div className="border-b border-gray-400 font-bold py-3 px-4">
-                Room ID: {roomIdCommitted}
-              </div>
+          {roomIdCommitted &&
+            (connected ? (
+              <div className="bg-white rounded w-full mt-4">
+                <div className="border-b border-gray-400 font-bold py-3 px-4">
+                  Room ID: {roomIdCommitted}
+                </div>
 
-              <div className="py-3 px-4 flex flex-col gap-3 border-b border-gray-400">
-                {state.messages.length == 0 && <div>~~~ No messages ~~~</div>}
+                <div className="py-3 px-4 flex flex-col gap-3 border-b border-gray-400">
+                  {state.messages.length == 0 && <div>~~~ No messages ~~~</div>}
 
-                {state.messages.map((message, i) => (
-                  <div key={i}>
-                    <div className="text-sm font-bold mb-1 truncate text-ellipsis">
-                      {state.names[message.peerId] || message.peerId}
+                  {state.messages.map((message, i) => (
+                    <div key={i}>
+                      <div className="text-sm font-bold truncate text-ellipsis">
+                        {state.names[message.peerId] || message.peerId}
+                      </div>
+                      <div className="text-sm">{message.message}</div>
                     </div>
-                    <div className="text-sm">{message.message}</div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              <form
-                className="flex"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  dispatch({
-                    type: "MESSAGE",
-                    payload: {
-                      message,
-                    },
-                  });
-                  setMessage("");
-                }}
-              >
-                <input
-                  className="px-4 py-2 w-full"
-                  placeholder="Enter Your Message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                ></input>
-                <button
-                  className="bg-white rounded px-6 font-bold bg-[#d8e4da]"
-                  type="submit"
+                <form
+                  className="flex"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    dispatch({
+                      type: "MESSAGE",
+                      payload: {
+                        message,
+                      },
+                    });
+                    setMessage("");
+                  }}
                 >
-                  Send
-                </button>
-              </form>
-            </div>
-          )}
+                  <input
+                    className="px-4 py-2 w-full"
+                    placeholder="Enter Your Message"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                  ></input>
+                  <button
+                    className="bg-white rounded px-6 font-bold bg-[#d8e4da]"
+                    type="submit"
+                  >
+                    Send
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="text-lg text-white mt-4">Connecting...</div>
+            ))}
 
           <div className="mt-4 text-xs text-gray-200">
             <div className="truncate">
               Peer ID: {turboEdge?.node.peerId.toString()}
             </div>
-            <div className="mt-0.5">Connected Peers: {peerCount}</div>
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              <PingPeers
+                roomId={roomIdCommitted}
+                names={state.names}
+              ></PingPeers>
+            </div>
           </div>
         </div>
       </div>

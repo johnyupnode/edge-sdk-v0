@@ -38,13 +38,9 @@ const fromHexString = (hexString: string) =>
     hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
   );
 
-const TurboEdgeContext = React.createContext<TurboEdgeContextBody | undefined>(
+export const TurboEdgeContext = React.createContext<TurboEdgeContextBody | undefined>(
   undefined
 );
-
-export function useTurboEdgeV0() {
-  return useContext(TurboEdgeContext);
-}
 
 export function TurboEdgeProviderV0({
   p2pRelay = "p2p-relay-v0.turbo.ing",
@@ -107,6 +103,7 @@ export function TurboEdgeProviderV0({
         identify: identify(),
         pubsub: gossipsub({
           allowPublishToZeroTopicPeers: true,
+          gossipFactor: 1,
         }),
         dcutr: dcutr(),
       },

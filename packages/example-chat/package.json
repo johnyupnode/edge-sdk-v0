@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@libp2p/interface": "^1.7.0",
     "@turbo-ing/edge-v0": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwindcss": "^3.4.11"
+    "tailwindcss": "^3.4.11",
+    "uint8arrays": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

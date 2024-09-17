@@ -2,12 +2,13 @@ import { useState, useEffect, useReducer, useCallback, useMemo, useRef } from "r
 import {
   Libp2pNode,
   TurboEdgeContextBody,
-  useTurboEdgeV0,
 } from "../providers/TurboEdgeProviderV0";
 import { fromString, toString } from "uint8arrays";
 import { Message, SignedMessage } from "@libp2p/interface";
 import { multiaddr } from "@multiformats/multiaddr";
 import { shuffleArray } from "../utils/shuffle";
+import { useTurboEdgeV0 } from "./useTurboEdgeV0";
+import { ensurePeers } from "../utils/peers";
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -86,15 +87,11 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
       const systemTopic = `@turbo-ing/edge-v0/${peerId}/${topic}`
       await turboEdge.node.services.pubsub.subscribe(systemTopic);
 
-      console.log(systemTopic)
-
       const peers = await assignTopic(turboEdge, topic);
 
       const handler = async (event: CustomEvent<Message>) => {
         const eventTopic = event.detail.topic;
         const message: string = toString(event.detail.data);
-
-        console.log('WTF', eventTopic, message)
 
         if (eventTopic == systemTopic) {
           const action: { type: 'REQUEST_STATE' } = JSON.parse(message);
@@ -107,26 +104,32 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
               break
             }
           }
-        } else if (eventTopic.startsWith('@turbo-ing/edge-v0')) {
-          const action: { type: 'PUBLISH_STATE', payload: S } = JSON.parse(message);
+        } else {
+          // Match "@turbo-ing/edge-v0/[peerId]/[topic...]"
+          const escapedSystemTopic = topic.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const pattern = new RegExp(`^@turbo-ing\\/edge-v0\\/[a-zA-Z0-9]+\\/${escapedSystemTopic}$`);
 
-          console.debug("Received message on topic:", eventTopic, action);
+          if (pattern.test(eventTopic)) {
+            const action: { type: 'PUBLISH_STATE', payload: S } = JSON.parse(message);
 
-          switch (action.type) {
-            case 'PUBLISH_STATE': {
-              if (!stateInitialized.current) {
-                stateInitialized.current = true
-                try {
-                  rawDispatch({
-                    __turbo__type: 'PAYLOAD',
-                    __turbo__payload: action.payload,
-                  } as A)
-                } catch (err) {
-                  console.error(err)
-                  stateInitialized.current = false
+            console.debug("Received message on topic:", eventTopic, action);
+  
+            switch (action.type) {
+              case 'PUBLISH_STATE': {
+                if (!stateInitialized.current) {
+                  stateInitialized.current = true
+                  try {
+                    rawDispatch({
+                      __turbo__type: 'PAYLOAD',
+                      __turbo__payload: action.payload,
+                    } as A)
+                  } catch (err) {
+                    console.error(err)
+                    stateInitialized.current = false
+                  }
                 }
+                break
               }
-              break
             }
           }
         }
@@ -144,21 +147,32 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
 
           const shuffledPeers = shuffleArray(peers)
 
-          // Fetch 5 peers per second for the initial state. Accept the answer from the first peers who respond.
+          // Fetch 2 peers per second for the initial state. Accept the answer from the first peers who respond.
           for (const peer of shuffledPeers) {
             const systemTopic = `@turbo-ing/edge-v0/${peer}/${topic}`
 
-            console.log(systemTopic)
-
             await turboEdge.node.services.pubsub.subscribe(systemTopic)
 
-            await turboEdge.node.services.pubsub.publish(
-              systemTopic,
-              fromString(JSON.stringify({
-                type: 'REQUEST_STATE'
-              }))
-            );
-            await wait(200)
+            new Promise<void>(async resolve => {
+              try {
+                const hasPeers = await ensurePeers(turboEdge, systemTopic, 2000)
+
+                if (hasPeers) {
+                  await turboEdge.node.services.pubsub.publish(
+                    systemTopic,
+                    fromString(JSON.stringify({
+                      type: 'REQUEST_STATE'
+                    }))
+                  );
+                }
+
+                resolve()
+              } catch (err) {
+                console.error('Fetching initial state from peer', peer, 'failed', err)
+              }
+            })
+
+            await wait(500)
 
             if (stateInitialized.current) {
               return
@@ -178,6 +192,10 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
         await turboEdge.node.services.pubsub.unsubscribe(systemTopic)
       }
 
+      if (peers.length > 0) {
+        await ensurePeers(turboEdge, topic, 2000)
+      }
+
       setInitialized(true);
 
       console.debug("Connected to topic:", topic);
@@ -185,7 +203,7 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
       return () => {
         turboEdge.node.services.pubsub.unsubscribe(topic)
         turboEdge.node.services.pubsub.unsubscribe(systemTopic)
-        // turboEdge.node.services.pubsub.removeEventListener("message", handler);
+        turboEdge.node.services.pubsub.removeEventListener("message", handler);
 
         console.debug("Unsubscribed from topic:", topic);
       };
@@ -216,7 +234,9 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
           const message = toString(event.detail.data);
           const action: A = JSON.parse(message);
 
-          console.debug("Received message on topic:", eventTopic, action);
+          if (!eventTopic.startsWith('@turbo-ping')) {
+            console.debug("Received message on topic:", eventTopic, action);
+          }
 
           rawDispatch({
             ...action,
@@ -269,7 +289,7 @@ async function assignTopic(turboEdge: TurboEdgeContextBody, topic: string) {
   }
 
   {
-    const res = await fetch(turboEdge.p2pRelay + "/get-peers/" + topic).then(
+    const res = await fetch(turboEdge.p2pRelay + "/get-peers/" + encodeURIComponent(topic)).then(
       (res) => res.json()
     );
 
@@ -292,8 +312,6 @@ async function assignTopic(turboEdge: TurboEdgeContextBody, topic: string) {
       }
 
       const connectedPeers = await Promise.all(promises)
-
-      console.log('Connected Peers', connectedPeers)
 
       return connectedPeers.filter(x => typeof x === 'string')
     } else {
