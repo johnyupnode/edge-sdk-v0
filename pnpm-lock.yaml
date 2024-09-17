@@ -22,6 +22,9 @@ importers:
       '@libp2p/circuit-relay-v2':
         specifier: ^1.0.4
         version: 1.1.5
+      '@libp2p/crypto':
+        specifier: 4.1.9
+        version: 4.1.9
       '@libp2p/dcutr':
         specifier: ^1.0.3
         version: 1.1.5
@@ -34,6 +37,9 @@ importers:
       '@libp2p/mplex':
         specifier: ^10.1.0
         version: 10.1.5
+      '@libp2p/peer-id-factory':
+        specifier: ^4.2.4
+        version: 4.2.4
       '@libp2p/webrtc':
         specifier: ^4.0.5
         version: 4.1.10(react-native@0.75.3(@babel/core@7.25.2)(@babel/preset-env@7.25.4(@babel/core@7.25.2))(@types/react@18.3.5)(react@18.3.1)(typescript@5.6.2))
@@ -5276,7 +5282,7 @@ snapshots:
       '@noble/hashes': 1.5.0
       asn1js: 3.0.5
       multiformats: 13.2.3
-      protons-runtime: 5.4.0
+      protons-runtime: 5.5.0
       uint8arraylist: 2.4.8
       uint8arrays: 5.1.0
 

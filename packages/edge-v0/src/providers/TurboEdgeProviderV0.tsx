@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Libp2p, PubSub } from "@libp2p/interface";
@@ -18,6 +19,8 @@ import { Identify, identify } from "@libp2p/identify";
 import * as filters from "@libp2p/websockets/filters";
 import { shuffleArray } from "../utils/shuffle";
 import { multiaddr } from "@multiformats/multiaddr";
+import { getP2PKey } from "../utils/p2pKey";
+import { createFromPrivKey } from "@libp2p/peer-id-factory";
 
 export type Libp2pNode = Libp2p<{
   identify: Identify;
@@ -30,6 +33,11 @@ export interface TurboEdgeContextBody {
   addrPrefix: string;
 }
 
+const fromHexString = (hexString: string) =>
+  Uint8Array.from(
+    hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+  );
+
 const TurboEdgeContext = React.createContext<TurboEdgeContextBody | undefined>(
   undefined
 );
@@ -40,15 +48,26 @@ export function useTurboEdgeV0() {
 
 export function TurboEdgeProviderV0({
   p2pRelay = "p2p-relay-v0.turbo.ing",
+  p2pPrivateKey,
   children,
 }: {
   p2pRelay?: string;
+  p2pPrivateKey?: string;
   children: ReactNode;
 }) {
   const [value, setValue] = useState<TurboEdgeContextBody>();
+  const initialized = useRef(false)
 
   const init = useCallback(async (): Promise<TurboEdgeContextBody> => {
+    if (initialized.current) throw new Error('Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error.')
+    
+    initialized.current = true
+
+    const privateKey = await getP2PKey(p2pPrivateKey)
+    const peerId = await createFromPrivKey(privateKey)
+    
     const node = await createLibp2p({
+      peerId,
       addresses: {
         listen: [
           // create listeners for incoming WebRTC connection attempts on on all
@@ -149,7 +168,7 @@ export function TurboEdgeProviderV0({
       throw new Error("No working relay available");
     }
 
-    console.debug("Libp2p initialized successfully");
+    console.debug("Turbo Edge initialized successfully");
 
     return {
       node,
@@ -162,9 +181,13 @@ export function TurboEdgeProviderV0({
     try {
       init()
         .then((x) => setValue(x))
-        .catch((err) => console.error("Failed to initialize libp2p node", err));
+        .catch((err) => {
+          if (err.message != 'Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error.') {
+            console.error("Failed to initialize Turbo Edge", err)
+          }
+        });
     } catch (err) {
-      console.error("Failed to initialize libp2p node", err);
+      console.error("Failed to initialize Turbo Edge", err);
     }
   }, []);
 

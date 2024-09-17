@@ -1,11 +1,19 @@
-import { useState, useEffect, useReducer, useCallback } from "react";
-import { Libp2pNode, TurboEdgeContextBody, useTurboEdgeV0 } from "../providers/TurboEdgeProviderV0";
+import { useState, useEffect, useReducer, useCallback, useMemo, useRef } from "react";
+import {
+  Libp2pNode,
+  TurboEdgeContextBody,
+  useTurboEdgeV0,
+} from "../providers/TurboEdgeProviderV0";
 import { fromString, toString } from "uint8arrays";
 import { Message, SignedMessage } from "@libp2p/interface";
 import { multiaddr } from "@multiformats/multiaddr";
+import { shuffleArray } from "../utils/shuffle";
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export interface EdgeAction<S> {
   peerId?: string;
+  __turbo__type?: string;
   __turbo__payload?: S;
 }
 
@@ -18,9 +26,28 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
     topic: string;
   }
 ): [S, (action: A) => Promise<void>, boolean] {
+  const extendedReducer = useCallback(
+    (state: S, action: A): S => {
+      switch (action.__turbo__type) {
+        case 'PAYLOAD':
+          return action.__turbo__payload!;
+
+        case 'RESET':
+          return initialValue;
+      }
+
+      return reducer(state, action);
+    },
+    [reducer]
+  );
+
   const turboEdge = useTurboEdgeV0();
-  const [state, rawDispatch] = useReducer(reducer, initialValue);
-  const [initialized, setInitialized] = useState(false)
+  const [state, rawDispatch] = useReducer(extendedReducer, initialValue);
+  const [initialized, setInitialized] = useState(false);
+
+  // Hooks for triggering state publishing
+  const [statePublishingTarget, setStatePublishingTarget] = useState<string[]>([])
+  const stateInitialized = useRef(false)
 
   const dispatch = useCallback(
     async (action: A) => {
@@ -42,24 +69,137 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   );
 
   const init = useCallback(async () => {
-    setInitialized(false)
-    if (turboEdge && topic) {
-      await turboEdge.node.services.pubsub.subscribe(topic);
-      await assignTopic(turboEdge, topic)
-      setInitialized(true)
+    setInitialized(false);
+    if (turboEdge && topic && !topic.startsWith('@turbo-ing')) {
+      rawDispatch({
+        __turbo__type: 'RESET'
+      } as A)
 
-      console.debug('Connected to topic:', topic)
+      stateInitialized.current = false
+
+      const peerId = turboEdge.node.peerId.toString()
+
+      // Subscribe to application topic
+      await turboEdge.node.services.pubsub.subscribe(topic);
+
+      // Subscribe to Turbo Edge system topic
+      const systemTopic = `@turbo-ing/edge-v0/${peerId}/${topic}`
+      await turboEdge.node.services.pubsub.subscribe(systemTopic);
+
+      console.log(systemTopic)
+
+      const peers = await assignTopic(turboEdge, topic);
+
+      const handler = async (event: CustomEvent<Message>) => {
+        const eventTopic = event.detail.topic;
+        const message: string = toString(event.detail.data);
+
+        console.log('WTF', eventTopic, message)
+
+        if (eventTopic == systemTopic) {
+          const action: { type: 'REQUEST_STATE' } = JSON.parse(message);
+
+          console.debug("Received message on topic:", eventTopic, action);
+
+          switch (action.type) {
+            case 'REQUEST_STATE': {
+              setStatePublishingTarget(x => [...x, (event.detail as SignedMessage).from.toString()])
+              break
+            }
+          }
+        } else if (eventTopic.startsWith('@turbo-ing/edge-v0')) {
+          const action: { type: 'PUBLISH_STATE', payload: S } = JSON.parse(message);
+
+          console.debug("Received message on topic:", eventTopic, action);
+
+          switch (action.type) {
+            case 'PUBLISH_STATE': {
+              if (!stateInitialized.current) {
+                stateInitialized.current = true
+                try {
+                  rawDispatch({
+                    __turbo__type: 'PAYLOAD',
+                    __turbo__payload: action.payload,
+                  } as A)
+                } catch (err) {
+                  console.error(err)
+                  stateInitialized.current = false
+                }
+              }
+              break
+            }
+          }
+        }
+      };
+
+      turboEdge.node.services.pubsub.addEventListener("message", handler);
+
+      // Try to fetch initial state from the peer
+      async function fetchInitialData() {
+        if (turboEdge) {
+          if (peers.length == 0) {
+            stateInitialized.current = true
+            return
+          }
+
+          const shuffledPeers = shuffleArray(peers)
+
+          // Fetch 5 peers per second for the initial state. Accept the answer from the first peers who respond.
+          for (const peer of shuffledPeers) {
+            const systemTopic = `@turbo-ing/edge-v0/${peer}/${topic}`
+
+            console.log(systemTopic)
+
+            await turboEdge.node.services.pubsub.subscribe(systemTopic)
+
+            await turboEdge.node.services.pubsub.publish(
+              systemTopic,
+              fromString(JSON.stringify({
+                type: 'REQUEST_STATE'
+              }))
+            );
+            await wait(200)
+
+            if (stateInitialized.current) {
+              return
+            }
+          }
+    
+          // If no peer is found to have the state for 1 second, we assume that no data is available.
+          await wait(1000)
+          stateInitialized.current = true
+        }
+      }
+      await fetchInitialData()
+
+      // Unsubscribe from all peers system topic for cleaning up
+      for (const peer of peers) {
+        const systemTopic = `@turbo-ing/edge-v0/${peer}/${topic}`
+        await turboEdge.node.services.pubsub.unsubscribe(systemTopic)
+      }
+
+      setInitialized(true);
+
+      console.debug("Connected to topic:", topic);
+
+      return () => {
+        turboEdge.node.services.pubsub.unsubscribe(topic)
+        turboEdge.node.services.pubsub.unsubscribe(systemTopic)
+        // turboEdge.node.services.pubsub.removeEventListener("message", handler);
+
+        console.debug("Unsubscribed from topic:", topic);
+      };
     }
   }, [turboEdge, topic]);
 
   const initWithRetry = useCallback(async () => {
     for (let i = 0; i < 5; i++) {
       try {
-        await init()
-        return
+        await init();
+        return;
       } catch (err) {
         if (i == 4) {
-          throw err
+          throw err;
         }
       }
     }
@@ -76,7 +216,7 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
           const message = toString(event.detail.data);
           const action: A = JSON.parse(message);
 
-          console.debug('Received message on topic:', eventTopic, action)
+          console.debug("Received message on topic:", eventTopic, action);
 
           rawDispatch({
             ...action,
@@ -89,60 +229,91 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
 
       return () => {
         turboEdge.node.services.pubsub.removeEventListener("message", handler);
-        removeTopic(turboEdge, topic)
+        removeTopic(turboEdge, topic);
       };
     }
   }, [turboEdge, topic]);
 
-  return [state, dispatch, initialized];
+  useEffect(() => {
+    if (statePublishingTarget.length > 0 && turboEdge && stateInitialized.current) {
+      const peerId = turboEdge.node.peerId.toString()
+      const systemTopic = `@turbo-ing/edge-v0/${peerId}/${topic}`
+      turboEdge.node.services.pubsub.publish(
+        systemTopic,
+        fromString(JSON.stringify({
+          type: 'PUBLISH_STATE',
+          payload: state,
+        }))
+      );
+    }
+  }, [turboEdge, statePublishingTarget, state])
+
+  return [state, dispatch, initialized && stateInitialized.current];
 }
 
 async function assignTopic(turboEdge: TurboEdgeContextBody, topic: string) {
-  const selfPeerId = turboEdge.node.peerId.toString()
+  const selfPeerId = turboEdge.node.peerId.toString();
 
   {
-    const response = await fetch(turboEdge.p2pRelay + '/assign-topic', {
-      method: 'POST',
+    const response = await fetch(turboEdge.p2pRelay + "/assign-topic", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ peerid: selfPeerId, topic }),
-    })
+    });
 
     if (!response.ok) {
-      throw new Error('Assign topic failed')
+      throw new Error("Assign topic failed");
     }
   }
 
   {
-    const res = await fetch(turboEdge.p2pRelay + '/get-peers/' + topic).then(res => res.json())
-    
+    const res = await fetch(turboEdge.p2pRelay + "/get-peers/" + topic).then(
+      (res) => res.json()
+    );
+
     if (res.peers) {
-      for (const peer of res.peers) {
-        console.debug(`${turboEdge.addrPrefix}/${peer}`)
+      const peers: string[] = res.peers.length > 21 ? res.peers.slice(res.peers.length - 21) : res.peers
+      const promises: Promise<string | void>[] = []
+
+      for (const peer of peers) {
         if (peer != selfPeerId) {
-          const ma = multiaddr(`${turboEdge.addrPrefix}/p2p-circuit/webrtc/p2p/${peer}`)
-          turboEdge.node.dial(ma).catch(err => console.error(`Can't connect to ${peer}`, err))
+          const ma = multiaddr(
+            `${turboEdge.addrPrefix}/p2p-circuit/webrtc/p2p/${peer}`
+          );
+          promises.push(
+            turboEdge.node
+              .dial(ma)
+              .then(() => peer)
+              .catch((err) => console.error(`Can't connect to ${peer}`, err))
+          )
         }
       }
+
+      const connectedPeers = await Promise.all(promises)
+
+      console.log('Connected Peers', connectedPeers)
+
+      return connectedPeers.filter(x => typeof x === 'string')
     } else {
-      throw new Error('Error fetching peers')
+      throw new Error("Error fetching peers");
     }
   }
 }
 
 async function removeTopic(turboEdge: TurboEdgeContextBody, topic: string) {
-  const selfPeerId = turboEdge.node.peerId.toString()
+  const selfPeerId = turboEdge.node.peerId.toString();
 
-  const response = await fetch(turboEdge.p2pRelay + '/remove-peerid-topic', {
-    method: 'DELETE',
+  const response = await fetch(turboEdge.p2pRelay + "/remove-peerid-topic", {
+    method: "DELETE",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ peerid: selfPeerId, topic }),
-  })
+  });
 
   if (!response.ok) {
-    throw new Error('Remove topic failed')
+    throw new Error("Remove topic failed");
   }
 }
