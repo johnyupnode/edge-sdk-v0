@@ -28,6 +28,9 @@ importers:
       '@libp2p/dcutr':
         specifier: ^1.0.3
         version: 1.1.5
+      '@libp2p/floodsub':
+        specifier: ^9.1.0
+        version: 9.1.5
       '@libp2p/identify':
         specifier: ^2.1.0
         version: 2.1.0
@@ -1239,6 +1242,9 @@ packages:
 
   '@libp2p/dcutr@1.1.5':
     resolution: {integrity: sha512-1zDhZxLxrl+yqIAG9KzyLu3gzyvOT7UYTislw4EwhcMGMviot/pgR87SSVqbT+HDpAoj1sM/3F5VUT/sCDa9WA==}
+
+  '@libp2p/floodsub@9.1.5':
+    resolution: {integrity: sha512-nIja0ap9KUkpjHLhGTzYkHpZ5Q7jJHB6FQ/jzUdktdrFidUo2rOYSg1uPTZsZvcYvUjt1ii3wOSBfVGqxvqbaw==}
 
   '@libp2p/identify@2.1.0':
     resolution: {integrity: sha512-aHaMNNFxG1w/CNsTXaYaY/MkwKe4Y4Rtea7Npsnrtj5Ka7/TM6Xg9ZsYoaKtL13MZriKPCRatvU59qxNYzNtQQ==}
@@ -5303,6 +5309,14 @@ snapshots:
       it-protobuf-stream: 1.1.5
       protons-runtime: 5.5.0
       uint8arraylist: 2.4.8
+
+  '@libp2p/floodsub@9.1.5':
+    dependencies:
+      '@libp2p/interface': 1.7.0
+      '@libp2p/pubsub': 9.0.26
+      protons-runtime: 5.5.0
+      uint8arraylist: 2.4.8
+      uint8arrays: 5.1.0
 
   '@libp2p/identify@2.1.0':
     dependencies:

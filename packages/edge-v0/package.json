@@ -19,6 +19,7 @@
     "@libp2p/circuit-relay-v2": "^1.0.4",
     "@libp2p/crypto": "4.1.9",
     "@libp2p/dcutr": "^1.0.3",
+    "@libp2p/floodsub": "^9.1.0",
     "@libp2p/identify": "^2.1.0",
     "@libp2p/interface": "^1.7.0",
     "@libp2p/mplex": "^10.1.0",

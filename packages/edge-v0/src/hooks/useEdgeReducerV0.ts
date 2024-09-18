@@ -294,7 +294,8 @@ async function assignTopic(turboEdge: TurboEdgeContextBody, topic: string) {
     );
 
     if (res.peers) {
-      const peers: string[] = res.peers.length > 21 ? res.peers.slice(res.peers.length - 21) : res.peers
+      // const peers: string[] = res.peers.length > 21 ? res.peers.slice(res.peers.length - 21) : res.peers
+      const peers: string[] = res.peers // Floodsub require all peers
       const promises: Promise<string | void>[] = []
 
       for (const peer of peers) {

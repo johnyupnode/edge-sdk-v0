@@ -15,6 +15,7 @@ import { dcutr } from "@libp2p/dcutr";
 import { webRTC } from "@libp2p/webrtc";
 import { webSockets } from "@libp2p/websockets";
 import { createLibp2p } from "libp2p";
+import { floodsub } from '@libp2p/floodsub'
 import { Identify, identify } from "@libp2p/identify";
 import * as filters from "@libp2p/websockets/filters";
 import { shuffleArray } from "../utils/shuffle";
@@ -101,10 +102,11 @@ export function TurboEdgeProviderV0({
       },
       services: {
         identify: identify(),
-        pubsub: gossipsub({
-          allowPublishToZeroTopicPeers: true,
-          gossipFactor: 1,
-        }),
+        // pubsub: gossipsub({
+        //   allowPublishToZeroTopicPeers: true,
+        //   gossipFactor: 1,
+        // }),
+        pubsub: floodsub(),
         dcutr: dcutr(),
       },
       connectionManager: {
