@@ -21,7 +21,6 @@ import * as filters from "@libp2p/websockets/filters";
 import { shuffleArray } from "../utils/shuffle";
 import { multiaddr } from "@multiformats/multiaddr";
 import { getP2PKey } from "../utils/p2pKey";
-import { createFromPrivKey } from "@libp2p/peer-id-factory";
 
 export type Libp2pNode = Libp2p<{
   identify: Identify;
@@ -64,10 +63,9 @@ export function TurboEdgeProviderV0({
     initialized.current = true;
 
     const privateKey = await getP2PKey(p2pPrivateKey);
-    const peerId = await createFromPrivKey(privateKey);
 
     const node = await createLibp2p({
-      peerId,
+      privateKey,
       addresses: {
         listen: [
           // create listeners for incoming WebRTC connection attempts on on all
@@ -125,7 +123,7 @@ export function TurboEdgeProviderV0({
         }),
       ],
       // a connection encrypter is necessary to dial the relay
-      connectionEncryption: [noise()],
+      connectionEncrypters: [noise()],
       // a stream muxer is necessary to dial the relay
       streamMuxers: [yamux()],
       connectionGater: {
@@ -145,9 +143,6 @@ export function TurboEdgeProviderV0({
         // }),
         pubsub: floodsub(),
         dcutr: dcutr(),
-      },
-      connectionManager: {
-        minConnections: 0,
       },
     });
 
