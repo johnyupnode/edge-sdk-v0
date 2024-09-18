@@ -15,7 +15,7 @@ import { dcutr } from "@libp2p/dcutr";
 import { webRTC } from "@libp2p/webrtc";
 import { webSockets } from "@libp2p/websockets";
 import { createLibp2p } from "libp2p";
-import { floodsub } from '@libp2p/floodsub'
+import { floodsub } from "@libp2p/floodsub";
 import { Identify, identify } from "@libp2p/identify";
 import * as filters from "@libp2p/websockets/filters";
 import { shuffleArray } from "../utils/shuffle";
@@ -26,7 +26,7 @@ import { createFromPrivKey } from "@libp2p/peer-id-factory";
 export type Libp2pNode = Libp2p<{
   identify: Identify;
   pubsub: PubSub;
-}>
+}>;
 
 export interface TurboEdgeContextBody {
   node: Libp2pNode;
@@ -39,9 +39,9 @@ const fromHexString = (hexString: string) =>
     hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
   );
 
-export const TurboEdgeContext = React.createContext<TurboEdgeContextBody | undefined>(
-  undefined
-);
+export const TurboEdgeContext = React.createContext<
+  TurboEdgeContextBody | undefined
+>(undefined);
 
 export function TurboEdgeProviderV0({
   p2pRelay = "p2p-relay-v0.turbo.ing",
@@ -53,16 +53,19 @@ export function TurboEdgeProviderV0({
   children: ReactNode;
 }) {
   const [value, setValue] = useState<TurboEdgeContextBody>();
-  const initialized = useRef(false)
+  const initialized = useRef(false);
 
   const init = useCallback(async (): Promise<TurboEdgeContextBody> => {
-    if (initialized.current) throw new Error('Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error.')
-    
-    initialized.current = true
+    if (initialized.current)
+      throw new Error(
+        "Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error."
+      );
 
-    const privateKey = await getP2PKey(p2pPrivateKey)
-    const peerId = await createFromPrivKey(privateKey)
-    
+    initialized.current = true;
+
+    const privateKey = await getP2PKey(p2pPrivateKey);
+    const peerId = await createFromPrivKey(privateKey);
+
     const node = await createLibp2p({
       peerId,
       addresses: {
@@ -79,7 +82,41 @@ export function TurboEdgeProviderV0({
           filter: filters.all,
         }),
         // support dialing/listening on WebRTC addresses
-        webRTC(),
+        webRTC({
+          rtcConfiguration: {
+            iceServers: [
+              {
+                urls: [
+                  "stun:stun.l.google.com:19302",
+                  "stun:global.stun.twilio.com:3478",
+                  "stun:stun.cloudflare.com:3478",
+                  "stun:stun.services.mozilla.com:3478",
+                  "stun:stun.relay.metered.ca:80",
+                ],
+              },
+              {
+                urls: "turn:global.relay.metered.ca:80",
+                username: "694db5e49dbd59234f01c4af",
+                credential: "gnvTZJAcbL6Tgo7I",
+              },
+              {
+                urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                username: "694db5e49dbd59234f01c4af",
+                credential: "gnvTZJAcbL6Tgo7I",
+              },
+              {
+                urls: "turn:global.relay.metered.ca:443",
+                username: "694db5e49dbd59234f01c4af",
+                credential: "gnvTZJAcbL6Tgo7I",
+              },
+              {
+                urls: "turns:global.relay.metered.ca:443?transport=tcp",
+                username: "694db5e49dbd59234f01c4af",
+                credential: "gnvTZJAcbL6Tgo7I",
+              },
+            ],
+          },
+        }),
         // support dialing/listening on Circuit Relay addresses
         circuitRelayTransport({
           // make a reservation on any discovered relays - this will let other
@@ -181,8 +218,11 @@ export function TurboEdgeProviderV0({
       init()
         .then((x) => setValue(x))
         .catch((err) => {
-          if (err.message != 'Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error.') {
-            console.error("Failed to initialize Turbo Edge", err)
+          if (
+            err.message !=
+            "Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error."
+          ) {
+            console.error("Failed to initialize Turbo Edge", err);
           }
         });
     } catch (err) {

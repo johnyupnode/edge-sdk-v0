@@ -1,6 +1,6 @@
 # Turbo Edge SDK V0
 
-The Turbo Edge SDK allows for the development and deployment of low-latency, online multiplayer games that are entirely peer-to-peer, eliminating the need for servers. Even students can deploy and share their games with classmates without incurring any recurring monthly server costs.
+The Turbo Edge SDK allows for the development and deployment of low-latency, online multiplayer games that are entirely peer-to-peer, eliminating the need for servers. Even students can deploy and share their games with classmates without incurring any recurring monthly server costs. Players in the same geographic region can play together with low-latency without having game developers spend millions of dollars deploying servers worldwide.
 
 With just a few lines of additional code, your offline game can be transformed into an online multiplayer game.
 
@@ -47,7 +47,7 @@ const initState = { pos: {} }
 
 function reducer(state, action) {
   switch (action.type) {
-    case ‘move’:
+    case 'move':
       const s = cloneDeep(state)
       s.pos[action.peerId][0] += action.pos[0]
       s.pos[action.peerId][0] += action.pos[1]
@@ -59,11 +59,11 @@ function reducer(state, action) {
 function GameComponent() {
   const [state, dispatch, connected] =
     useEdgeReducerV0(reducer, initState, {
-      topic: ‘...’,
+      topic: '...',
     })
 
   const move = async (pos) => await dispatch({
-    type: ‘move’, pos
+    type: 'move', pos
   })
 
   // ... [ Use with state.pos[userId] ] ...
