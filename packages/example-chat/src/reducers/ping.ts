@@ -1,4 +1,4 @@
-import { EdgeAction, ensurePeers, useEdgeMessageHandlerV0, useEdgeReducerV0, useTurboEdgeV0 } from "@turbo-ing/edge-v0";
+import { EdgeAction, ensurePeers, useEdgeReducerV0, useTurboEdgeV0 } from "@turbo-ing/edge-v0";
 import { Message, SignedMessage } from "@libp2p/interface";
 import { useEffect, useReducer, useState } from "react";
 import { fromString, toString } from "uint8arrays";

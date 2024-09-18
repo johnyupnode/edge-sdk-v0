@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePingReducer } from "./reducers/ping";
-import { TurboEdgeContextBody, useTurboEdgeV0 } from "@turbo-ing/edge-v0";
+import { useTurboEdgeV0 } from "@turbo-ing/edge-v0";
 
 export default function PingPeers({
   roomId,
