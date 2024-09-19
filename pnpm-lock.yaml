@@ -72,8 +72,8 @@ importers:
   packages/example-chat:
     dependencies:
       '@libp2p/interface':
-        specifier: ^1.7.0
-        version: 1.7.0
+        specifier: ^2.0.1
+        version: 2.0.1
       '@turbo-ing/edge-v0':
         specifier: workspace:*
         version: link:../edge-v0
@@ -1247,9 +1247,6 @@ packages:
 
   '@libp2p/interface-internal@2.0.1':
     resolution: {integrity: sha512-xu6P7pTAzqpbto/8zWwRT9pJMVsrnEd4ZWOsAOkffiXpQHWNXsRbtL3pLmDUBSkDTDrbNU/xyo9NyyDn0YuyvQ==}
-
-  '@libp2p/interface@1.7.0':
-    resolution: {integrity: sha512-/zFyaIaIGW0aihhsH7/93vQdpWInUzFocxF11RO/029Y6h0SVjs24HHbils+DqaFDTqN+L7oNlBx2rM2MnmTjA==}
 
   '@libp2p/interface@2.0.1':
     resolution: {integrity: sha512-zDAgu+ZNiYZxVsmcvCeNCLMnGORwLMMI8w0k2YcHwolATsv2q7QG3KpakmyKjH4m7C0hT86lGgf1sgGobPssYA==}
@@ -5341,15 +5338,6 @@ snapshots:
       '@libp2p/interface': 2.0.1
       '@libp2p/peer-collections': 6.0.1
       '@multiformats/multiaddr': 12.3.1
-      progress-events: 1.0.1
-      uint8arraylist: 2.4.8
-
-  '@libp2p/interface@1.7.0':
-    dependencies:
-      '@multiformats/multiaddr': 12.3.1
-      it-pushable: 3.2.3
-      it-stream-types: 2.0.2
-      multiformats: 13.2.3
       progress-events: 1.0.1
       uint8arraylist: 2.4.8
 

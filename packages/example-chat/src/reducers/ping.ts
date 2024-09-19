@@ -51,7 +51,7 @@ export function pingReducer(
   }
 }
 
-export function usePingReducer(roomId: string): [PingState, string[]] {
+export function usePingReducer(roomId: string, pingInterval = 500): [PingState, string[]] {
   const turboEdge = useTurboEdgeV0()
 
   const commonTopic = roomId ? `@turbo-ping/COMMON/COMMON/${roomId}` : ''
@@ -75,7 +75,7 @@ export function usePingReducer(roomId: string): [PingState, string[]] {
         } else {
           setPeers([]);
         }
-      }, 100);
+      }, pingInterval);
   
       return () => clearInterval(interval);
     }

@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@libp2p/interface": "^1.7.0",
+    "@libp2p/interface": "^2.0.1",
     "@turbo-ing/edge-v0": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
