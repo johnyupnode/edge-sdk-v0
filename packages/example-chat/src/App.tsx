@@ -140,6 +140,9 @@ function App() {
             <div className="truncate">
               Peer ID: {turboEdge?.node.peerId.toString()}
             </div>
+            <div className="mt-0.5">
+              Status: {turboEdge?.node.status}
+            </div>
             <div className="mt-0.5 flex flex-col gap-0.5">
               <PingPeers
                 roomId={roomIdCommitted}
