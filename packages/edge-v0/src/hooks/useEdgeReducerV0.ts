@@ -23,23 +23,41 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   initialValue: S,
   {
     topic,
+    onDispatch,
+    onPayload,
+    onReset,
   }: {
     topic: string;
+    onDispatch?: (action: A) => any;
+    onPayload?: (state: S) => any;
+    onReset?: (previousState: S) => any;
   }
 ): [S, (action: A) => Promise<void>, boolean] {
   const extendedReducer = useCallback(
     (state: S, action: A): S => {
       switch (action.__turbo__type) {
         case 'PAYLOAD':
+          try {
+            if (onPayload) onPayload(state)
+          } catch (err) {
+            console.error(err)
+          }
+
           return action.__turbo__payload!;
 
         case 'RESET':
+          try {
+            if (onReset) onReset(state)
+          } catch (err) {
+            console.error(err)
+          }
+          
           return initialValue;
       }
 
       return reducer(state, action);
     },
-    [reducer]
+    [reducer, onReset, onPayload]
   );
 
   const turboEdge = useTurboEdgeV0();
@@ -62,11 +80,15 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
           ...action,
           peerId: turboEdge.node.peerId.toString(),
         });
+
+        if (onDispatch) {
+          onDispatch(action)
+        }
       } else {
         throw new Error("Turbo Edge is not connected");
       }
     },
-    [rawDispatch, turboEdge, topic, initialized]
+    [rawDispatch, onDispatch, turboEdge, topic, initialized]
   );
 
   const init = useCallback(async () => {
@@ -207,6 +229,10 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
 
         console.debug("Unsubscribed from topic:", topic);
       };
+    } else {
+      rawDispatch({
+        __turbo__type: 'RESET'
+      } as A)
     }
   }, [turboEdge, topic]);
 
