@@ -1,6 +1,6 @@
 {
   "name": "@turbo-ing/edge-v0",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "A React hook for P2P state synchronization using Turbo Edge",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

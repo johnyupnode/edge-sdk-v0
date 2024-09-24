@@ -38,7 +38,7 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
       switch (action.__turbo__type) {
         case 'PAYLOAD':
           try {
-            if (onPayload) onPayload(state)
+            if (onPayload) onPayload(action.__turbo__payload!)
           } catch (err) {
             console.error(err)
           }
