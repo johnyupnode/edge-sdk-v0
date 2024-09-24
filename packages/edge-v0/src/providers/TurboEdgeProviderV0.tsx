@@ -31,6 +31,7 @@ export interface TurboEdgeContextBody {
   node: Libp2pNode;
   p2pRelay: string;
   addrPrefix: string;
+  connected: boolean;
 }
 
 const fromHexString = (hexString: string) =>
@@ -53,15 +54,10 @@ export function TurboEdgeProviderV0({
 }) {
   const [value, setValue] = useState<TurboEdgeContextBody>();
   const initialized = useRef(false);
+  const reconnecting = useRef(false);
+  const healthcheckInterval = useRef(Date.now());
 
-  const init = useCallback(async (): Promise<TurboEdgeContextBody> => {
-    if (initialized.current)
-      throw new Error(
-        "Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error."
-      );
-
-    initialized.current = true;
-
+  const buildLibp2p = useCallback(async () => {
     const privateKey = await getP2PKey(p2pPrivateKey);
 
     const node = await createLibp2p({
@@ -146,6 +142,82 @@ export function TurboEdgeProviderV0({
       },
     });
 
+    return node;
+  }, [p2pPrivateKey]);
+
+  const reconnect = useCallback(
+    async (value: TurboEdgeContextBody) => {
+      if (value && !reconnecting.current) {
+        try {
+          reconnecting.current = true;
+
+          let requireReconnect = false;
+
+          if (Date.now() - healthcheckInterval.current > 2000) {
+            setValue((value) =>
+              value
+                ? {
+                    ...value,
+                    connected: false,
+                  }
+                : undefined
+            );
+
+            requireReconnect = true;
+          }
+
+          const peerId = value.node.peerId.toString();
+          const statusResponse = await fetch(
+            `${value.p2pRelay}/peer-status/${peerId}`
+          );
+
+          if (statusResponse.status == 200) {
+            const { connected } = await statusResponse.json();
+
+            if (!connected) {
+              const node = await buildLibp2p();
+              setValue((value) =>
+                value
+                  ? {
+                      ...value,
+                      node,
+                      connected: true,
+                    }
+                  : undefined
+              );
+            } else {
+              if (requireReconnect) {
+                setValue((value) =>
+                  value
+                    ? {
+                        ...value,
+                        connected: true,
+                      }
+                    : undefined
+                );
+              }
+            }
+          } else {
+            await reconnect(value);
+          }
+        } finally {
+          reconnecting.current = false;
+        }
+      }
+    },
+    [reconnecting]
+  );
+
+  const init = useCallback(async (): Promise<TurboEdgeContextBody> => {
+    if (initialized.current)
+      throw new Error(
+        "Turbo Edge has been initializing twice. This is normal for the development environment, so you can safely ignore this error."
+      );
+
+    initialized.current = true;
+
+    const node = await buildLibp2p();
+
     let addrPrefix = "";
 
     // Fetch addrPrefix from dns
@@ -153,7 +225,7 @@ export function TurboEdgeProviderV0({
       // Construct TXT record dnsaddr domain from P2P Relay
       const dnsDomain =
         "_dnsaddr." +
-        (p2pRelay.startsWith("http") ? p2pRelay.substring(8) : p2pRelay);
+        (p2pRelay.startsWith("https") ? p2pRelay.substring(8) : p2pRelay);
 
       // Construct the URL with the domain and query type (TXT)
       const url = `https://dns.google/resolve?name=${encodeURIComponent(
@@ -199,13 +271,16 @@ export function TurboEdgeProviderV0({
       throw new Error("No working relay available");
     }
 
+    const value: TurboEdgeContextBody = {
+      node,
+      p2pRelay: p2pRelay.startsWith("https") ? p2pRelay : "https://" + p2pRelay,
+      addrPrefix,
+      connected: true,
+    };
+
     console.debug("Turbo Edge initialized successfully");
 
-    return {
-      node,
-      p2pRelay: p2pRelay.startsWith("http") ? p2pRelay : "https://" + p2pRelay,
-      addrPrefix,
-    };
+    return value;
   }, [p2pRelay]);
 
   useEffect(() => {
@@ -224,6 +299,35 @@ export function TurboEdgeProviderV0({
       console.error("Failed to initialize Turbo Edge", err);
     }
   }, []);
+
+  useEffect(() => {
+    if (value) {
+      healthcheckInterval.current = Date.now();
+
+      const healthcheckIntervalController = setInterval(() => {
+        healthcheckInterval.current = Date.now();
+      }, 500);
+
+      const handleFocus = () => reconnect(value);
+      window.addEventListener("focus", handleFocus);
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          reconnect(value);
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        clearInterval(healthcheckIntervalController);
+        window.removeEventListener("focus", handleFocus);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange
+        );
+      };
+    }
+  }, [value]);
 
   return (
     <TurboEdgeContext.Provider value={value}>

@@ -2,5 +2,9 @@ import { useContext } from "react";
 import { TurboEdgeContext } from "../providers/TurboEdgeProviderV0";
 
 export function useTurboEdgeV0() {
-  return useContext(TurboEdgeContext);
+  const turboEdge = useContext(TurboEdgeContext);
+
+  if (!turboEdge?.connected) return undefined
+
+  return turboEdge
 }
