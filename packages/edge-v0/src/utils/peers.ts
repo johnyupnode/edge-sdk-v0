@@ -1,3 +1,4 @@
+import { Libp2p } from "@libp2p/interface"
 import { TurboEdgeContextBody } from "../providers"
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -15,4 +16,12 @@ export async function ensurePeers(turboEdge: TurboEdgeContextBody, topic: string
   }
 
   return false
+}
+
+export async function ensureLibp2pPeers(node: Libp2p) {
+  while (true) {
+    const peers = node.getPeers()
+    await wait(200)
+    if (peers.length > 0) break;
+  }
 }

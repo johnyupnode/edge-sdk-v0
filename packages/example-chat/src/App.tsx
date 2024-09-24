@@ -15,6 +15,9 @@ function App() {
     initialState,
     {
       topic: roomIdCommitted,
+      onDispatch: (action) => console.log('onDispatch:', action),
+      onPayload: (state) => console.log('onPayload:', state),
+      onReset: (state) => console.log('onReset:', state),
     }
   );
 
@@ -29,7 +32,7 @@ function App() {
         },
       });
     }
-  }, [name, dispatch, connected, roomIdCommitted]);
+  }, [name, connected, roomIdCommitted]);
 
   return (
     <>

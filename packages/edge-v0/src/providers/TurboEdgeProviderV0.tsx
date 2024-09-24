@@ -21,6 +21,7 @@ import * as filters from "@libp2p/websockets/filters";
 import { shuffleArray } from "../utils/shuffle";
 import { multiaddr } from "@multiformats/multiaddr";
 import { getP2PKey } from "../utils/p2pKey";
+import { ensureLibp2pPeers } from "../utils/peers";
 
 export type Libp2pNode = Libp2p<{
   identify: Identify;
@@ -176,6 +177,9 @@ export function TurboEdgeProviderV0({
 
             if (!connected) {
               const node = await buildLibp2p();
+              await node.dial(multiaddr(value.addrPrefix));
+              await ensureLibp2pPeers(node)
+
               setValue((value) =>
                 value
                   ? {
@@ -277,6 +281,8 @@ export function TurboEdgeProviderV0({
       addrPrefix,
       connected: true,
     };
+
+    await ensureLibp2pPeers(node)
 
     console.debug("Turbo Edge initialized successfully");
 
