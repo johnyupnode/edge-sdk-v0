@@ -92,12 +92,7 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   );
 
   const init = useCallback(async () => {
-    setInitialized(false);
     if (turboEdge && topic && !topic.startsWith('@turbo-ing')) {
-      rawDispatch({
-        __turbo__type: 'RESET'
-      } as A)
-
       stateInitialized.current = false
 
       const peerId = turboEdge.node.peerId.toString()
@@ -115,7 +110,19 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
         const eventTopic = event.detail.topic;
         const message: string = toString(event.detail.data);
 
-        if (eventTopic == systemTopic) {
+        if (eventTopic == topic) {
+          const message = toString(event.detail.data);
+          const action: A = JSON.parse(message);
+
+          if (!eventTopic.startsWith('@turbo-ping')) {
+            console.debug("Received message on topic:", eventTopic, action);
+          }
+
+          rawDispatch({
+            ...action,
+            peerId: (event.detail as SignedMessage).from.toString(),
+          });
+        } else if (eventTopic == systemTopic) {
           const action: { type: 'REQUEST_STATE' } = JSON.parse(message);
 
           console.debug("Received message on topic:", eventTopic, action);
@@ -226,21 +233,19 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
         turboEdge.node.services.pubsub.unsubscribe(topic)
         turboEdge.node.services.pubsub.unsubscribe(systemTopic)
         turboEdge.node.services.pubsub.removeEventListener("message", handler);
+        removeTopic(turboEdge, topic);
 
         console.debug("Unsubscribed from topic:", topic);
       };
-    } else {
-      rawDispatch({
-        __turbo__type: 'RESET'
-      } as A)
     }
+
+    return () => {}
   }, [turboEdge, topic]);
 
   const initWithRetry = useCallback(async () => {
     for (let i = 0; i < 5; i++) {
       try {
-        await init();
-        return;
+        return await init();
       } catch (err) {
         if (i == 4) {
           throw err;
@@ -250,33 +255,41 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   }, [init]);
 
   useEffect(() => {
-    if (turboEdge && topic) {
-      initWithRetry();
+    setInitialized(false)
 
-      const handler = (event: CustomEvent<Message>) => {
-        const eventTopic = event.detail.topic;
+    rawDispatch({
+      __turbo__type: 'RESET'
+    } as A)
 
-        if (eventTopic == topic) {
-          const message = toString(event.detail.data);
-          const action: A = JSON.parse(message);
+    if (turboEdge && topic && !topic.startsWith('@turbo-ing')) {
+      let destructor: (() => void) | null
 
-          if (!eventTopic.startsWith('@turbo-ping')) {
-            console.debug("Received message on topic:", eventTopic, action);
-          }
-
-          rawDispatch({
-            ...action,
-            peerId: (event.detail as SignedMessage).from.toString(),
-          });
+      const promise = initWithRetry().then(result => {
+        if (result) {
+          destructor = result
+        } else {
+          destructor = null
         }
-      };
-
-      turboEdge.node.services.pubsub.addEventListener("message", handler);
+        return destructor
+      }).catch(err => {
+        console.error(err)
+        destructor = null
+        return destructor
+      });
 
       return () => {
-        turboEdge.node.services.pubsub.removeEventListener("message", handler);
-        removeTopic(turboEdge, topic);
-      };
+        if (typeof destructor === 'undefined') {
+          promise.then(result => {
+            if (result) {
+              result()
+            }
+          })
+        } else {
+          if (destructor) {
+            destructor()
+          }
+        }
+      }
     }
   }, [turboEdge, topic]);
 
