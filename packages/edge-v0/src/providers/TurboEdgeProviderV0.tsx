@@ -1,54 +1,26 @@
-import React, {
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { Libp2p, PubSub } from "@libp2p/interface";
-import { gossipsub } from "@chainsafe/libp2p-gossipsub";
-import { noise } from "@chainsafe/libp2p-noise";
-import { yamux } from "@chainsafe/libp2p-yamux";
-import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
-import { dcutr } from "@libp2p/dcutr";
-import { webRTC } from "@libp2p/webrtc";
-import { webSockets } from "@libp2p/websockets";
-import { createLibp2p } from "libp2p";
-import { floodsub } from "@libp2p/floodsub";
-import { Identify, identify } from "@libp2p/identify";
+import React, {ReactNode, useCallback, useEffect, useRef, useState,} from "react";
+import {noise} from "@chainsafe/libp2p-noise";
+import {yamux} from "@chainsafe/libp2p-yamux";
+import {circuitRelayTransport} from "@libp2p/circuit-relay-v2";
+import {dcutr} from "@libp2p/dcutr";
+import {webRTC} from "@libp2p/webrtc";
+import {webSockets} from "@libp2p/websockets";
+import {createLibp2p} from "libp2p";
+import {floodsub} from "@libp2p/floodsub";
+import {identify} from "@libp2p/identify";
 import * as filters from "@libp2p/websockets/filters";
-import { shuffleArray } from "../utils/shuffle";
-import { multiaddr } from "@multiformats/multiaddr";
-import { getP2PKey } from "../utils/p2pKey";
-import { ensureLibp2pPeers } from "../utils/peers";
-
-export type Libp2pNode = Libp2p<{
-  identify: Identify;
-  pubsub: PubSub;
-}>;
-
-export interface TurboEdgeContextBody {
-  node: Libp2pNode;
-  p2pRelay: string;
-  addrPrefix: string;
-  connected: boolean;
-}
-
-const fromHexString = (hexString: string) =>
-  Uint8Array.from(
-    hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
-  );
-
-export const TurboEdgeContext = React.createContext<
-  TurboEdgeContextBody | undefined
->(undefined);
+import {shuffleArray} from "../utils/shuffle";
+import {multiaddr} from "@multiformats/multiaddr";
+import {getP2PKey} from "../utils/p2pKey";
+import {ensureLibp2pPeers} from "../utils/peers";
+import {TurboEdgeContextBody} from "../types";
+import {TurboEdgeContext} from "../context";
 
 export function TurboEdgeProviderV0({
-  p2pRelay = "p2p-relay-v0.turbo.ing",
-  p2pPrivateKey,
-  children,
-}: {
+                                      p2pRelay = "p2p-relay-v0.turbo.ing",
+                                      p2pPrivateKey,
+                                      children,
+                                    }: {
   p2pRelay?: string;
   p2pPrivateKey?: string;
   children: ReactNode;
@@ -61,7 +33,7 @@ export function TurboEdgeProviderV0({
   const buildLibp2p = useCallback(async () => {
     const privateKey = await getP2PKey(p2pPrivateKey);
 
-    const node = await createLibp2p({
+    return await createLibp2p({
       privateKey,
       addresses: {
         listen: [
@@ -142,8 +114,6 @@ export function TurboEdgeProviderV0({
         dcutr: dcutr(),
       },
     });
-
-    return node;
   }, [p2pPrivateKey]);
 
   const reconnect = useCallback(
@@ -158,9 +128,9 @@ export function TurboEdgeProviderV0({
             setValue((value) =>
               value
                 ? {
-                    ...value,
-                    connected: false,
-                  }
+                  ...value,
+                  connected: false,
+                }
                 : undefined
             );
 
@@ -183,10 +153,10 @@ export function TurboEdgeProviderV0({
               setValue((value) =>
                 value
                   ? {
-                      ...value,
-                      node,
-                      connected: true,
-                    }
+                    ...value,
+                    node,
+                    connected: true,
+                  }
                   : undefined
               );
             } else {
@@ -194,9 +164,9 @@ export function TurboEdgeProviderV0({
                 setValue((value) =>
                   value
                     ? {
-                        ...value,
-                        connected: true,
-                      }
+                      ...value,
+                      connected: true,
+                    }
                     : undefined
                 );
               }

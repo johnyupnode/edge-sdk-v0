@@ -20,7 +20,7 @@ importers:
         specifier: ^7.0.0
         version: 7.0.0
       '@libp2p/circuit-relay-v2':
-        specifier: ^2.0.1
+        specifier: 2.0.1
         version: 2.0.1
       '@libp2p/crypto':
         specifier: ^5.0.1

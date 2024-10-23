@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { TurboEdgeContext } from "../providers/TurboEdgeProviderV0";
+import {TurboEdgeContext} from "../context";
 
 export function useTurboEdgeV0() {
   const turboEdge = useContext(TurboEdgeContext);

@@ -3,27 +3,18 @@ import {
   useEffect,
   useReducer,
   useCallback,
-  useMemo,
   useRef,
 } from "react";
-import {
-  Libp2pNode,
-  TurboEdgeContextBody,
-} from "../providers/TurboEdgeProviderV0";
 import { fromString, toString } from "uint8arrays";
 import { Message, SignedMessage } from "@libp2p/interface";
 import { multiaddr } from "@multiformats/multiaddr";
 import { shuffleArray } from "../utils/shuffle";
 import { useTurboEdgeV0 } from "./useTurboEdgeV0";
 import { ensurePeers } from "../utils/peers";
+import {EdgeAction, TurboEdgeContextBody} from "../types";
+import {edgeReducerV0} from "../reducer/edgeReducerV0";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-export interface EdgeAction<S> {
-  peerId?: string;
-  __turbo__type?: string;
-  __turbo__payload?: S;
-}
 
 export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   reducer: (state: S, action: A) => S,
@@ -41,29 +32,7 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   }
 ): [S, (action: A) => Promise<void>, boolean] {
   const extendedReducer = useCallback(
-    (state: S, action: A): S => {
-      switch (action.__turbo__type) {
-        case "PAYLOAD":
-          try {
-            if (onPayload) onPayload(action.__turbo__payload!);
-          } catch (err) {
-            console.error(err);
-          }
-
-          return action.__turbo__payload!;
-
-        case "RESET":
-          try {
-            if (onReset) onReset(state);
-          } catch (err) {
-            console.error(err);
-          }
-
-          return initialValue;
-      }
-
-      return reducer(state, action);
-    },
+    (state: S, action: A): S => { return edgeReducerV0(state, action, reducer, initialValue, {onPayload, onReset})},
     [reducer, onReset, onPayload]
   );
 
@@ -108,11 +77,11 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
       const peerId = turboEdge.node.peerId.toString();
 
       // Subscribe to application topic
-      await turboEdge.node.services.pubsub.subscribe(topic);
+      turboEdge.node.services.pubsub.subscribe(topic);
 
       // Subscribe to Turbo Edge system topic
       const systemTopic = `@turbo-ing/edge-v0/${peerId}/${topic}`;
-      await turboEdge.node.services.pubsub.subscribe(systemTopic);
+      turboEdge.node.services.pubsub.subscribe(systemTopic);
 
       const peers = await assignTopic(turboEdge, topic);
 

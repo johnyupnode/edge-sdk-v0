@@ -1,5 +1,5 @@
 import { Libp2p } from "@libp2p/interface"
-import { TurboEdgeContextBody } from "../providers"
+import {TurboEdgeContextBody} from "../types";
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
