@@ -15,6 +15,7 @@ export type Libp2pNode = Libp2p<{
 export interface TurboEdgeContextBody {
   node: Libp2pNode;
   p2pRelay: string;
+  daProxy: string;
   addrPrefix: string;
   connected: boolean;
 }

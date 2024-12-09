@@ -31,6 +31,11 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
     onReset?: (previousState: S) => any;
   }
 ): [S, (action: A) => Promise<void>, boolean] {
+  // get the host as gameId and combine with the topic
+  const gameId = window.location.host;
+  if (topic) {
+    topic = `${topic}_${gameId}`;
+  }
   const extendedReducer = useCallback(
     (state: S, action: A): S => { return edgeReducerV0(state, action, reducer, initialValue, {onPayload, onReset})},
     [reducer, onReset, onPayload]
@@ -228,6 +233,10 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
 
       console.debug("Connected to topic:", topic);
 
+      // Register game info to the DA Proxy
+      const sessionId = "session_now";
+      await registerGameInfo(turboEdge, topic, gameId, sessionId);
+
       return async () => {
         turboEdge.node.services.pubsub.unsubscribe(topic);
         turboEdge.node.services.pubsub.unsubscribe(systemTopic);
@@ -235,6 +244,10 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
         await removeTopic(turboEdge, topic);
 
         console.debug("Unsubscribed from topic:", topic);
+
+        // Remove game info from the DA Proxy
+        await removeGameInfo(turboEdge, topic, gameId, sessionId);
+
       };
     }
 
@@ -389,5 +402,41 @@ async function removeTopic(turboEdge: TurboEdgeContextBody, topic: string) {
 
   if (!response.ok) {
     throw new Error("Remove topic failed");
+  }
+}
+
+// Register game info to the DA Proxy
+// This is used to inform the DA Proxy that the game is running on the edge node
+async function registerGameInfo(turboEdge: TurboEdgeContextBody, topic: string, gameId: string, sessionId: string) {
+  const selfPeerId = turboEdge.node.peerId.toString();
+
+  const response = await fetch(turboEdge.daProxy + "/game/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ peerId: selfPeerId, topic, gameId, sessionId }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Register game info failed");
+  }
+}
+
+// Remove game info from the DA Proxy
+// This is used to inform the DA Proxy that the game is no longer running on the edge node
+async function removeGameInfo(turboEdge: TurboEdgeContextBody, topic: string, gameId: string, sessionId: string) {
+  const selfPeerId = turboEdge.node.peerId.toString();
+
+  const response = await fetch(turboEdge.daProxy + "/game/remove", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ peerId: selfPeerId, topic, gameId, sessionId }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Remove game info failed");
   }
 }
