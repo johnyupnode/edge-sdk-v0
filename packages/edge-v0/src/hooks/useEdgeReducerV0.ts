@@ -55,9 +55,10 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
   const dispatch = useCallback(
     async (action: A) => {
       if (turboEdge && topic && initialized) {
+        const data = {...action, sessionId: turboEdge.sessionId};
         await turboEdge.node.services.pubsub.publish(
           topic,
-          fromString(JSON.stringify(action))
+          fromString(JSON.stringify(data))
         );
 
         rawDispatch({
@@ -229,13 +230,22 @@ export function useEdgeReducerV0<S, A extends EdgeAction<S>>(
         await ensurePeers(turboEdge, topic, 2000);
       }
 
+      // Register game info to the DA Proxy
+      let sessionId = Math.random().toString(36).substring(7);
+      if (topic && !topic.startsWith("@turbo")) {
+        const gamesInfo = await getGameInfo(turboEdge, gameId, topic);
+        console.log("gamesInfo", JSON.stringify(gamesInfo));
+        if (gamesInfo && gamesInfo.length > 0) {
+          sessionId = gamesInfo[0].sessionId;
+        }
+        turboEdge.sessionId = sessionId;
+        await registerGameInfo(turboEdge, topic, gameId, sessionId);
+      }
+
       setInitialized(true);
 
       console.debug("Connected to topic:", topic);
 
-      // Register game info to the DA Proxy
-      const sessionId = "session_now";
-      await registerGameInfo(turboEdge, topic, gameId, sessionId);
 
       return async () => {
         turboEdge.node.services.pubsub.unsubscribe(topic);
@@ -439,4 +449,15 @@ async function removeGameInfo(turboEdge: TurboEdgeContextBody, topic: string, ga
   if (!response.ok) {
     throw new Error("Remove game info failed");
   }
+}
+
+async function getGameInfo(turboEdge: TurboEdgeContextBody, gameId: string, topic: string) {
+  const response = await fetch(`${turboEdge.daProxy}/game/${encodeURIComponent(gameId)}/${encodeURIComponent(topic)}`);
+  if (!response.ok) {
+    throw new Error("Get game info failed");
+  }
+
+  console.log("response", JSON.stringify(response));
+
+  return response.json();
 }
